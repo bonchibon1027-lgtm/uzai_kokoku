@@ -33,6 +33,16 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   line-height: 1.8;
+}
+
+/* overflow-x は html だけに設定する。html/body 両方に設定すると
+   CSSの仕様(overflow-x/overflow-yの片方が非visibleだと、もう片方の
+   'visible' は 'auto' に補正される)により body 側にも overflow-y:auto
+   の見えないスクロールコンテナが生まれてしまい、body配下の全ての
+   position: sticky 要素(.exp-topbar 等)が効かなくなる副作用があった。
+   html 側だけに絞ることで、その補正はルート要素→ビューポートへの
+   伝播で吸収され、sticky はビューポート基準で正しく機能する。 */
+html {
   overflow-x: hidden;
 }
 
@@ -110,8 +120,8 @@ button {
   border-radius: 10px;
   padding: 12px;
   display: flex;
+  flex-direction: column;
   gap: 10px;
-  align-items: flex-start;
   transition: border-color 0.2s, background 0.2s;
 }
 
@@ -120,8 +130,13 @@ button {
   background: #fff5f5;
 }
 
+.ad-type-item-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
 .ad-type-item input[type="checkbox"] {
-  margin-top: 3px;
   width: 18px;
   height: 18px;
   flex-shrink: 0;
@@ -134,12 +149,6 @@ button {
 .ad-type-item .ad-type-name {
   font-weight: bold;
   display: block;
-  margin-bottom: 2px;
-}
-
-.ad-type-item .ad-type-desc {
-  font-size: 0.82rem;
-  color: var(--color-text-sub);
 }
 
 .preset-buttons {
@@ -147,6 +156,563 @@ button {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+/* ==========================================================
+   広告タイプ選択カードのミニプレビュー(純CSS keyframesアニメーション)
+   各カードの .ad-preview.preview--{id} 内に「ミニチュアの記事」
+   (.ad-preview-article + .pv-line)を背景として置き、そのタイプ固有の
+   演出要素(.pv-xxx)を重ねてループ表示する。JSでのアニメーション
+   制御は行わない(生成のみ generator.js が担当)。
+   ========================================================== */
+
+.ad-preview {
+  position: relative;
+  height: 110px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e4e6ec;
+  isolation: isolate;
+}
+
+.ad-preview-article {
+  position: absolute;
+  inset: 0;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  z-index: 1;
+}
+
+.pv-line {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: #c4c8d1;
+}
+
+.pv-line:nth-child(4n + 1) {
+  width: 88%;
+}
+.pv-line:nth-child(4n + 2) {
+  width: 62%;
+}
+.pv-line:nth-child(4n + 3) {
+  width: 78%;
+}
+.pv-line:nth-child(4n + 4) {
+  width: 50%;
+}
+
+/* ④スティッキー/⑫スクロールジャックは「記事だけがスクロールし続ける」演出 */
+.preview--sticky .ad-preview-article,
+.preview--scrollJack .ad-preview-article {
+  justify-content: flex-start;
+  animation: pvLinesScroll 4s linear infinite;
+}
+
+@keyframes pvLinesScroll {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-46px);
+  }
+}
+
+/* 汎用ミニモーダル(①popup / ③fakeClose で使用) */
+.pv-modal {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 76px;
+  height: 46px;
+  margin-left: -38px;
+  margin-top: -23px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- ①ポップアップ広告プレビュー ---- */
+.pv-popup-modal {
+  border: 1px solid var(--color-primary);
+  opacity: 0;
+  transform: scale(0.4);
+  animation: pvPopup 3.6s ease-in-out infinite;
+}
+
+.pv-modal-x {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  font-size: 0.5rem;
+  color: #999;
+}
+
+.pv-modal-label {
+  font-size: 0.58rem;
+  font-weight: bold;
+  color: var(--color-primary-dark);
+}
+
+@keyframes pvPopup {
+  0%,
+  8% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  20%,
+  70% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  85%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+/* ---- ②全面広告(インタースティシャル)プレビュー ---- */
+.pv-interstitial-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(135deg, #360033, #0b8793);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateX(100%);
+  animation: pvInterstitial 3.6s ease-in-out infinite;
+}
+
+@keyframes pvInterstitial {
+  0% {
+    transform: translateX(100%);
+  }
+  20%,
+  60% {
+    transform: translateX(0);
+  }
+  80%,
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+/* ---- ③極小・偽装×ボタンプレビュー ---- */
+.pv-fakeclose-modal {
+  border: 1px solid var(--color-border);
+}
+
+.pv-tiny-x {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  font-size: 5px;
+  line-height: 6px;
+  color: #eee;
+  background: #f2f2f2;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pv-fake-btn {
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 0.5rem;
+  font-weight: bold;
+  padding: 4px 10px;
+  border-radius: 4px;
+  animation: pvFakeBlink 1s ease-in-out infinite;
+}
+
+@keyframes pvFakeBlink {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 rgba(217, 4, 41, 0);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 8px rgba(217, 4, 41, 0.7);
+  }
+}
+
+/* ---- ④追従型(スティッキー)広告プレビュー ---- */
+.pv-sticky-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 24px;
+  z-index: 2;
+  background: linear-gradient(90deg, #f7971e, #ffd200);
+  color: #2b2200;
+  font-size: 0.58rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- ⑤スクロール割り込み広告プレビュー ---- */
+.pv-scrollinterrupt-block {
+  display: block;
+  height: 0;
+  overflow: hidden;
+  background: linear-gradient(135deg, #8e2de2, #4a00e0);
+  color: #fff;
+  font-size: 0.55rem;
+  font-weight: bold;
+  text-align: center;
+  line-height: 22px;
+  border-radius: 3px;
+  animation: pvScrollInterrupt 3.6s ease-in-out infinite;
+}
+
+@keyframes pvScrollInterrupt {
+  0%,
+  25% {
+    height: 0;
+  }
+  40%,
+  75% {
+    height: 22px;
+  }
+  90%,
+  100% {
+    height: 0;
+  }
+}
+
+/* ---- ⑥音声付き自動再生動画広告プレビュー ---- */
+.pv-video-box {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  height: 46px;
+  z-index: 2;
+  background: #111;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 8px;
+}
+
+.pv-video-progress-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.pv-video-progress-bar {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: var(--color-primary);
+  animation: pvVideoProgress 3.6s linear infinite;
+}
+
+@keyframes pvVideoProgress {
+  0% {
+    width: 0%;
+  }
+  90%,
+  100% {
+    width: 100%;
+  }
+}
+
+.pv-video-mute {
+  font-size: 0.8rem;
+  animation: pvMuteWiggle 1.2s ease-in-out infinite;
+}
+
+@keyframes pvMuteWiggle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-12deg);
+  }
+  75% {
+    transform: rotate(12deg);
+  }
+}
+
+/* ---- ⑦スキップ不可カウントダウン広告プレビュー ---- */
+.pv-countdown-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: rgba(10, 10, 20, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pv-num {
+  position: absolute;
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--color-warning);
+  opacity: 0;
+  animation: pvCountdownNum 3s steps(1) infinite;
+}
+
+.pv-num-3 {
+  animation-delay: 0s;
+}
+.pv-num-2 {
+  animation-delay: 1s;
+}
+.pv-num-1 {
+  animation-delay: 2s;
+}
+
+@keyframes pvCountdownNum {
+  0%,
+  32% {
+    opacity: 1;
+  }
+  33%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---- ⑧ホバー展開型広告プレビュー ---- */
+.pv-hover-box {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 30px;
+  z-index: 2;
+  background: linear-gradient(160deg, #11998e, #38ef7d);
+  color: #fff;
+  font-size: 0.55rem;
+  font-weight: bold;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  animation: pvHoverExpand 3.6s ease-in-out infinite;
+}
+
+@keyframes pvHoverExpand {
+  0%,
+  20% {
+    width: 34px;
+  }
+  45%,
+  70% {
+    width: 130px;
+  }
+  90%,
+  100% {
+    width: 34px;
+  }
+}
+
+/* ---- ⑨擬態型インフィード広告プレビュー ---- */
+.pv-infeed-list {
+  position: absolute;
+  inset: 8px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+}
+
+.pv-infeed-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 22px;
+  border-radius: 4px;
+  background: #d8dae0;
+  padding-right: 8px;
+}
+
+.pv-infeed-ad {
+  background: linear-gradient(90deg, #fff5f5, #ffe3e3);
+  border: 1px dashed var(--color-primary);
+  /* 最初は普通の記事行に見えて、じわっと広告だと分かる演出 */
+  animation: pvInfeedReveal 3.6s ease-in-out infinite;
+}
+
+@keyframes pvInfeedReveal {
+  0%,
+  25% {
+    background: #d8dae0;
+    border-color: transparent;
+  }
+  45%,
+  80% {
+    background: linear-gradient(90deg, #fff5f5, #ffe3e3);
+    border-color: var(--color-primary);
+  }
+  100% {
+    background: #d8dae0;
+    border-color: transparent;
+  }
+}
+
+.pv-pr-badge {
+  font-style: normal;
+  font-size: 0.5rem;
+  font-weight: bold;
+  color: var(--color-primary-dark);
+  background: #fff;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* ---- ⑩強制リダイレクト広告プレビュー ---- */
+.pv-cursor {
+  position: absolute;
+  z-index: 3;
+  font-size: 0.85rem;
+  color: #333;
+  animation: pvCursorMove 3.6s ease-in-out infinite;
+}
+
+@keyframes pvCursorMove {
+  0% {
+    left: 75%;
+    top: 75%;
+    transform: scale(1);
+  }
+  35% {
+    left: 45%;
+    top: 45%;
+    transform: scale(1);
+  }
+  45% {
+    left: 45%;
+    top: 45%;
+    transform: scale(0.7);
+  }
+  55% {
+    left: 45%;
+    top: 45%;
+    transform: scale(1);
+  }
+  100% {
+    left: 75%;
+    top: 75%;
+    transform: scale(1);
+  }
+}
+
+.pv-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: var(--color-danger);
+  opacity: 0;
+  animation: pvFlash 3.6s ease-in-out infinite;
+}
+
+@keyframes pvFlash {
+  0%,
+  48% {
+    opacity: 0;
+  }
+  52%,
+  60% {
+    opacity: 0.85;
+  }
+  70%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---- ⑪視聴強制ゲートプレビュー ---- */
+.pv-gate-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: rgba(15, 15, 25, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pvGateOpen 3.6s ease-in-out infinite;
+}
+
+.pv-lock {
+  font-size: 1.4rem;
+}
+
+@keyframes pvGateOpen {
+  0%,
+  80% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 0;
+  }
+  96%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* ---- ⑫スクロール押し込み広告(スクロールジャック)プレビュー ---- */
+.pv-scrolljack-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  color: #fff;
+  font-size: 0.56rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 10px;
+  transform: translateY(100%);
+  animation: pvScrollJack 4s ease-in-out infinite;
+}
+
+@keyframes pvScrollJack {
+  0%,
+  12% {
+    transform: translateY(100%);
+  }
+  30%,
+  68% {
+    transform: translateY(0);
+  }
+  85%,
+  100% {
+    transform: translateY(-100%);
+  }
 }
 
 /* ---------- ボタン共通 ---------- */
@@ -722,6 +1288,68 @@ button {
     width: 100%;
     transform: none;
   }
+}
+
+/* ---- スクロール押し込み広告(スクロールジャック) ---- */
+.scrolljack-wrapper {
+  position: relative;
+  height: 220vh;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  z-index: 150;
+}
+
+.scrolljack-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.scrolljack-panel {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+}
+
+.scrolljack-label {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  right: 16px;
+  color: #aaa;
+  font-size: 0.7rem;
+}
+
+.scrolljack-progress-track {
+  width: min(400px, 80%);
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 16px;
+}
+
+.scrolljack-progress-bar {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: var(--color-accent);
+  transition: width 0.05s linear;
+}
+
+.scrolljack-progress-text {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: #cfd2e0;
 }
 
 /* ---- 擬態型インフィード広告 ---- */

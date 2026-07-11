@@ -598,6 +598,90 @@ function initViewGateAd(config, ctx) {
 }
 
 /* ---------------------------------------------------------
+   ⑫ スクロール押し込み広告(スクロールジャック)
+   記事段落(60%あたり)の手前に、220vhぶんのスクロール距離を持つ
+   ラッパーを挿入する。中の広告パネルは position:sticky で
+   画面に張り付き続け、ラッパーぶんスクロールしきるまで通過できない。
+--------------------------------------------------------- */
+function initScrollJackAd(config, ctx) {
+  const container = ctx.articleContainer;
+  if (!container) return;
+
+  const paragraphs = Array.from(container.querySelectorAll("p"));
+  if (paragraphs.length === 0) return;
+
+  // 記事の60%あたりの段落の手前に挿入する
+  const insertIndex = Math.min(
+    paragraphs.length - 1,
+    Math.max(0, Math.floor(paragraphs.length * 0.6))
+  );
+  const anchor = paragraphs[insertIndex];
+
+  const creative = pickAdCreative(config);
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "scrolljack-wrapper";
+  wrapper.id = "scrolljack-ad-wrapper";
+  wrapper.innerHTML = `
+    <div class="scrolljack-sticky">
+      <div class="scrolljack-panel">
+        <span class="scrolljack-label">広告 | スクロールして通過してください ↓</span>
+        ${creativeMediaHtml(creative, "220px")}
+        <div class="ad-creative-title" style="color:#fff;font-size:1.3rem;">${escapeHtml(creative.title)}</div>
+        <div class="ad-creative-desc" style="color:#ddd;">${escapeHtml(creative.desc)}</div>
+        <div class="scrolljack-progress-track">
+          <div class="scrolljack-progress-bar" id="scrolljack-progress-bar"></div>
+        </div>
+        <div class="scrolljack-progress-text" id="scrolljack-progress-text">通過まで 0%</div>
+      </div>
+    </div>
+  `;
+
+  anchor.parentNode.insertBefore(wrapper, anchor);
+
+  const progressBar = wrapper.querySelector("#scrolljack-progress-bar");
+  const progressText = wrapper.querySelector("#scrolljack-progress-text");
+
+  function updateProgress() {
+    const rect = wrapper.getBoundingClientRect();
+    const scrollableDistance = wrapper.offsetHeight - window.innerHeight;
+    let pct = 0;
+    if (scrollableDistance > 0) {
+      const scrolled = -rect.top;
+      pct = Math.min(100, Math.max(0, (scrolled / scrollableDistance) * 100));
+    }
+    progressBar.style.width = pct + "%";
+    progressText.textContent = pct >= 99.5 ? "通過完了！" : `通過まで ${Math.round(pct)}%`;
+  }
+
+  // scrollイベントは環境によって取りこぼしがあるため、
+  // ラッパーが画面内にある間だけ requestAnimationFrame で更新する
+  // (画面外では停止するので負荷はほぼゼロ)
+  let rafActive = false;
+  function tick() {
+    if (!rafActive) return;
+    updateProgress();
+    requestAnimationFrame(tick);
+  }
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && !rafActive) {
+          rafActive = true;
+          requestAnimationFrame(tick);
+        } else if (!entry.isIntersecting) {
+          rafActive = false;
+        }
+      });
+    });
+    observer.observe(wrapper);
+  }
+  // rAFが抑制される環境(省電力モード等)への保険として両方使う
+  window.addEventListener("scroll", updateProgress, { passive: true });
+  updateProgress();
+}
+
+/* ---------------------------------------------------------
    レジストリパターン
    キー = generator.js の AD_TYPE_DEFS[].id と一致させる
 --------------------------------------------------------- */
@@ -613,6 +697,7 @@ const AdTypes = {
   infeed: initInfeedAd,
   forceRedirect: initForceRedirectAd,
   viewGate: initViewGateAd,
+  scrollJack: initScrollJackAd,
 };
 
 /**
