@@ -334,6 +334,11 @@ button {
   top: 50px;
 }
 
+/* ホバー展開広告が未選択のときは空の列を消して記事を中央に */
+.exp-side-col:empty {
+  display: none;
+}
+
 @media (max-width: 780px) {
   .exp-layout {
     flex-direction: column;
@@ -642,6 +647,21 @@ button {
   position: absolute;
   z-index: 200;
   background: rgba(15, 15, 25, 0.96);
+  /* 記事全体(縦に長い)を覆うため、中央寄せをやめてブロックにする。
+     中身は .gate-inner がスクロールに追従して常に見える位置に出る。 */
+  display: block;
+  padding: 0;
+}
+
+.gate-in-article .gate-inner {
+  position: sticky;
+  top: 22vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 30px 20px;
 }
 
 .gate-countdown {
@@ -672,6 +692,8 @@ button {
 
 /* ---- ホバー展開型広告 ---- */
 .hover-ad {
+  position: relative;
+  z-index: 260; /* 展開時に記事の上に覆いかぶさる */
   width: 100%;
   min-height: 220px;
   border-radius: 10px;
@@ -679,14 +701,27 @@ button {
   color: #fff;
   padding: 14px;
   text-align: center;
-  transition: width 0.4s ease, transform 0.4s ease;
+  transition: width 0.4s ease, transform 0.4s ease, min-height 0.4s ease;
   cursor: pointer;
   overflow: hidden;
 }
 
+/* サイドバーは画面右側にあるため、右端を固定したまま「左方向」へ
+   展開させる(右に広げると画面外にはみ出して見切れてしまう)。
+   translateXの100%は自身の展開後の幅を指すので、
+   「左へ(幅 - 元の160px)ぶん」ずらすと右端の位置が変わらない。 */
 .hover-ad.expanded {
-  width: 70vw;
-  max-width: 700px;
+  width: min(70vw, 700px);
+  min-height: 420px;
+  transform: translateX(calc(160px - 100%));
+}
+
+@media (max-width: 780px) {
+  /* モバイルではサイドバーが全幅・記事の下になるため、ずらさずその場で拡大 */
+  .hover-ad.expanded {
+    width: 100%;
+    transform: none;
+  }
 }
 
 /* ---- 擬態型インフィード広告 ---- */

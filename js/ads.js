@@ -174,7 +174,7 @@ function initPopupAd(config, ctx) {
     overlay.innerHTML = `
       <div class="ad-modal-box">
         <span class="ad-label">広告</span>
-        <button class="real-close-btn" aria-label="閉じる" style="width:22px;height:22px;font-size:14px;line-height:22px;">×</button>
+        <button class="real-close-btn" aria-label="閉じる" style="width:22px;height:22px;font-size:14px;line-height:22px;background:#e8e8e8;color:#666;border-radius:50%;">×</button>
         ${creativeMediaHtml(creative)}
         <div class="ad-creative-title">${escapeHtml(creative.title)}</div>
         <div class="ad-creative-desc">${escapeHtml(creative.desc)}</div>
@@ -539,7 +539,9 @@ function initForceRedirectAd(config, ctx) {
 
   let clickCount = 0;
   target.addEventListener("click", (e) => {
-    // 記事内の他の広告ボタン類の誤爆を避けるため、記事本文エリア自体へのクリックのみ数える
+    // 他の広告の操作ボタン(ゲート解除・ミュート・全面広告トリガー等)を
+    // 押しただけでtrap行きになると理不尽すぎるので、button/aは数えない
+    if (e.target.closest("button, a")) return;
     clickCount += 1;
     if (clickCount >= 2) {
       goToTrapPage();
@@ -563,11 +565,15 @@ function initViewGateAd(config, ctx) {
   gate.style.position = "absolute";
   gate.style.inset = "0";
   gate.style.borderRadius = "12px";
+  // 記事は縦に長いので、中身は .gate-inner (position: sticky) に包んで
+  // スクロール位置に関係なく常に画面内に見えるようにする
   gate.innerHTML = `
-    <span style="font-size:0.7rem;color:#aaa;">広告</span>
-    <div class="ad-creative-title" style="color:#fff;font-size:1.1rem;max-width:320px;">この記事を読むには広告(15秒)を視聴してください</div>
-    <div class="gate-countdown" id="viewgate-countdown">15</div>
-    <button class="gate-skip-btn" id="viewgate-read-btn" style="display:none;">記事を読む</button>
+    <div class="gate-inner">
+      <span style="font-size:0.7rem;color:#aaa;">広告</span>
+      <div class="ad-creative-title" style="color:#fff;font-size:1.1rem;max-width:320px;">この記事を読むには広告(15秒)を視聴してください</div>
+      <div class="gate-countdown" id="viewgate-countdown">15</div>
+      <button class="gate-skip-btn" id="viewgate-read-btn" style="display:none;">記事を読む</button>
+    </div>
   `;
   target.appendChild(gate);
 
