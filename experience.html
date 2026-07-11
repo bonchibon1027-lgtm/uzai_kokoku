@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>体験画面 | うざい広告ジェネレーター</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div class="exp-topbar">
+  <span id="active-ad-count">広告 読み込み中…</span>
+  <a href="index.html">⚙ 設定に戻る</a>
+</div>
+
+<!-- 記事タップ用の軽いオーバーレイ。
+     音声自動再生の許可を得るためのユーザージェスチャとして機能させる。 -->
+<div class="start-overlay" id="start-overlay">
+  <h2>📰 記事を読む準備ができました</h2>
+  <p>タップして記事を開くと、設定した「うざい広告」たちが動き出します。</p>
+  <button type="button" class="btn btn-large" id="start-overlay-btn" style="max-width:320px;">記事を読む</button>
+</div>
+
+<div class="exp-layout">
+  <div class="exp-main-col">
+    <article class="exp-article" id="article-content">
+      <!-- experience.js がここに記事タイトル・本文・広告スロットを描画する -->
+    </article>
+
+    <section class="exp-article" style="padding:18px 24px;">
+      <h2 style="font-size:1.05rem;">おすすめ記事</h2>
+      <div class="recommend-list" id="recommend-list"></div>
+    </section>
+  </div>
+
+  <aside class="exp-side-col" id="side-col">
+    <!-- ホバー展開型広告(選択時のみ)がここに挿入される -->
+  </aside>
+</div>
+
+<script src="js/articles.js"></script>
+<script src="js/ads.js"></script>
+<script>
+  /**
+   * experience.html のメインスクリプト。
+   * - sessionStorageから設定を読み込み
+   * - 記事本文を描画(内蔵サンプル or ユーザー貼り付け)
+   * - おすすめ記事リストを描画
+   * - 開始オーバーレイのタップをトリガーに、選択された広告タイプの
+   *   init〜Ad関数をAdTypesレジストリ経由で呼び出す
+   */
+
+  const DEFAULT_CONFIG = {
+    adTypes: ["popup", "sticky"],
+    images: [],
+    audio: null,
+    adText: "",
+    articleMode: "random",
+    customArticle: "",
+  };
+
+  function getConfigOrDefault() {
+    const loaded = window.loadUzaAdConfig();
+    if (loaded && Array.isArray(loaded.adTypes) && loaded.adTypes.length > 0) {
+      return loaded;
+    }
+    // index.htmlを経由せず直接開かれた場合などのフォールバック
+    return DEFAULT_CONFIG;
+  }
+
+  function pickArticle(config) {
+    if (config.articleMode === "custom" && config.customArticle && config.customArticle.trim() !== "") {
+      const paragraphs = config.customArticle
+        .split(/\n+/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+      return { title: "あなたが貼り付けた記事", body: paragraphs.length > 0 ? paragraphs : [config.customArticle] };
+    }
+    const list = window.ARTICLES || [];
+    const picked = list[Math.floor(Math.random() * list.length)];
+    return picked || { title: "サンプル記事", body: ["記事データを読み込めませんでした。"] };
+  }
+
+  /** 記事本文を描画し、広告を差し込むためのスロット要素を用意する */
+  function renderArticle(container, article) {
+    const h1 = document.createElement("h1");
+    h1.textContent = article.title;
+    container.appendChild(h1);
+
+    const paragraphs = article.body;
+    const n = paragraphs.length;
+    const videoAt = Math.min(n - 1, Math.max(0, Math.floor(n / 4)));
+    const scroll1At = Math.min(n - 1, Math.max(videoAt, Math.floor((n * 2) / 5)));
+    const scroll2At = Math.min(n - 1, Math.max(scroll1At, Math.floor((n * 4) / 5)));
+
+    const scrollSlots = [];
+    let videoAdSlot = null;
+
+    paragraphs.forEach((text, idx) => {
+      const p = document.createElement("p");
+      p.textContent = text;
+      container.appendChild(p);
+
+      if (idx === videoAt && !videoAdSlot) {
+        videoAdSlot = document.createElement("div");
+        videoAdSlot.id = "video-ad-slot";
+        container.appendChild(videoAdSlot);
+      }
+      if (idx === scroll1At) {
+        const slot = document.createElement("div");
+        slot.className = "scroll-ad-slot";
+        container.appendChild(slot);
+        scrollSlots.push(slot);
+      }
+      if (idx === scroll2At && scroll2At !== scroll1At) {
+        const slot = document.createElement("div");
+        slot.className = "scroll-ad-slot";
+        container.appendChild(slot);
+        scrollSlots.push(slot);
+      }
+    });
+
+    if (!videoAdSlot) {
+      videoAdSlot = document.createElement("div");
+      videoAdSlot.id = "video-ad-slot";
+      container.appendChild(videoAdSlot);
+    }
+
+    return { scrollSlots, videoAdSlot };
+  }
+
+  /** 「本物」のおすすめ記事リンクをいくつか描画する(擬態型広告の紛れ込み先になる) */
+  function renderRecommendList(listEl, currentTitle) {
+    const genuineTitles = [
+      { emoji: "☕", title: "自分好みの一杯を見つける、おうちコーヒーの淹れ方" },
+      { emoji: "🐈", title: "気ままに見えて実は繊細? 猫の行動から読み解く気持ち" },
+      { emoji: "🚶", title: "特別な準備はいらない、散歩がもたらす小さな効能" },
+    ].filter((a) => a.title !== currentTitle);
+
+    listEl.innerHTML = "";
+    genuineTitles.forEach((item) => {
+      const a = document.createElement("a");
+      a.href = "javascript:void(0);";
+      a.className = "recommend-item";
+      a.innerHTML = `
+        <div class="recommend-thumb">${item.emoji}</div>
+        <div class="recommend-title">${item.title}</div>
+      `;
+      a.addEventListener("click", (e) => e.preventDefault());
+      listEl.appendChild(a);
+    });
+  }
+
+  function updateActiveAdCount(count) {
+    document.getElementById("active-ad-count").textContent = `発動中の広告タイプ: ${count}種類`;
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const config = getConfigOrDefault();
+    const article = pickArticle(config);
+
+    const articleContainer = document.getElementById("article-content");
+    const { scrollSlots, videoAdSlot } = renderArticle(articleContainer, article);
+
+    const recommendList = document.getElementById("recommend-list");
+    renderRecommendList(recommendList, article.title);
+
+    updateActiveAdCount(config.adTypes.length);
+
+    const ctx = {
+      articleContainer,
+      sideCol: document.getElementById("side-col"),
+      recommendList,
+      scrollSlots,
+      videoAdSlot,
+    };
+
+    // 開始オーバーレイをタップしたら、選択された広告タイプを一斉に起動する
+    const overlay = document.getElementById("start-overlay");
+    document.getElementById("start-overlay-btn").addEventListener("click", () => {
+      overlay.style.display = "none";
+      window.unlockUzaAudio();
+
+      config.adTypes.forEach((typeId) => {
+        const initFn = window.AdTypes[typeId];
+        if (typeof initFn === "function") {
+          try {
+            initFn(config, ctx);
+          } catch (e) {
+            console.warn(`広告タイプ "${typeId}" の初期化に失敗しました:`, e);
+          }
+        }
+      });
+    });
+  });
+</script>
+</body>
+</html>

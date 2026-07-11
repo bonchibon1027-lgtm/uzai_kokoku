@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>うざい広告ジェネレーター</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <h1>😵 うざい広告ジェネレーター</h1>
+  <p>「うざいWeb広告」を安全に疑似体験できる、教育・ネタ目的のジェネレーターです。実際の広告配信は行いません。</p>
+</header>
+
+<main class="container">
+
+  <!-- 1. 広告タイプ選択 -->
+  <section class="section">
+    <h2>① 広告タイプを選ぶ</h2>
+    <p class="section-desc">体験したい「うざい広告」を好きなだけ選んでください(複数選択可)。</p>
+
+    <div class="preset-buttons">
+      <button type="button" id="btn-select-all" class="btn btn-primary">🔥 全部盛り(全選択)</button>
+      <button type="button" id="btn-random" class="btn btn-outline">🎲 おまかせ(3〜5個ランダム)</button>
+      <button type="button" id="btn-clear" class="btn" style="background:#ccc;color:#333;">クリア</button>
+    </div>
+
+    <div class="ad-type-list" id="ad-type-list">
+      <!-- generator.js がここにチェックボックス群を描画する -->
+    </div>
+  </section>
+
+  <!-- 2. 素材アップロード -->
+  <section class="section">
+    <h2>② 素材アップロード(すべて任意)</h2>
+    <p class="section-desc">アップロードしない項目は、内蔵のデフォルト素材(パロディ広告画像・ジングル音)が自動的に使われます。</p>
+
+    <div class="form-row">
+      <label class="field-label" for="input-images">広告画像(複数可)</label>
+      <input type="file" id="input-images" accept="image/*" multiple />
+      <p class="file-hint">複数枚選択すると、広告ごとにランダムで使い回されます。</p>
+      <div class="thumb-row" id="image-thumbs"></div>
+    </div>
+
+    <div class="form-row">
+      <label class="field-label" for="input-audio">音声ファイル(自動再生広告・音付き動画風広告で使用)</label>
+      <input type="file" id="input-audio" accept="audio/*" />
+      <p class="file-hint" id="audio-hint">未指定の場合、Web Audio APIで生成した安っぽいジングル音が使われます。</p>
+    </div>
+
+    <div class="form-row">
+      <label class="field-label" for="input-text">広告テキスト(キャッチコピー)</label>
+      <input type="text" id="input-text" placeholder="例: 今だけ！あなたにピッタリの◯◯が99%OFF!!" maxlength="80" />
+    </div>
+
+    <div class="warning-box" id="size-warning">
+      ⚠ アップロードされた素材の合計サイズが大きすぎたため、一部の素材をデフォルトに置き換えました。
+    </div>
+  </section>
+
+  <!-- 3. 記事選択 -->
+  <section class="section">
+    <h2>③ 記事を選ぶ</h2>
+    <p class="section-desc">広告が発動する舞台となる、体験画面の記事本文を選択してください。</p>
+
+    <div class="radio-row">
+      <label><input type="radio" name="article-mode" value="random" checked /> おまかせ(内蔵サンプル記事からランダム)</label>
+      <label><input type="radio" name="article-mode" value="custom" /> 自分で貼り付け</label>
+    </div>
+
+    <div class="form-row" id="custom-article-row" style="display:none;">
+      <label class="field-label" for="input-custom-article">記事本文(改行で段落分けされます)</label>
+      <textarea id="input-custom-article" placeholder="ここに好きな文章を貼り付けてください。"></textarea>
+    </div>
+  </section>
+
+  <!-- 4. 体験開始 -->
+  <section class="section">
+    <h2>④ 体験スタート</h2>
+    <p class="section-desc">設定内容を保存して、体験画面(experience.html)へ移動します。</p>
+    <button type="button" id="btn-start" class="btn btn-large">😈 うざい広告を体験する</button>
+  </section>
+
+  <p class="footer-note">
+    本サイトはネタ・教育目的のパロディです。すべての遷移・広告表示はサイト内で完結し、外部サイトへの誘導や実際の広告配信、トラッキング、ダウンロードは一切行いません。
+  </p>
+</main>
+
+<script src="js/generator.js"></script>
+</body>
+</html>
