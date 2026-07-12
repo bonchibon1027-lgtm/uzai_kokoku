@@ -206,9 +206,8 @@ button {
   width: 50%;
 }
 
-/* ④スティッキー/⑫スクロールジャックは「記事だけがスクロールし続ける」演出 */
-.preview--sticky .ad-preview-article,
-.preview--scrollJack .ad-preview-article {
+/* ④スティッキーは「記事だけがスクロールし続ける」演出 */
+.preview--sticky .ad-preview-article {
   justify-content: flex-start;
   animation: pvLinesScroll 4s linear infinite;
 }
@@ -682,14 +681,62 @@ button {
   }
 }
 
-/* ---- ⑫スクロール押し込み広告(スクロールジャック)プレビュー ---- */
-.pv-scrolljack-panel {
+/* ---- ⑫スワイプ広告プレビュー ---- */
+/* ミニ記事の中央あたりに置かれた小さな広告バナー */
+.pv-swipead-banner {
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  top: 42%;
+  height: 22px;
+  z-index: 1;
+  background: #d8dae2;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.52rem;
+  color: #8a8f9c;
+}
+
+/* 指(👆)が下から上へスワイプしていく演出 */
+.pv-swipead-finger {
+  position: absolute;
+  left: 50%;
+  font-size: 1.05rem;
+  z-index: 3;
+  transform: translateX(-50%);
+  animation: pvSwipeFinger 4s ease-in-out infinite;
+}
+
+@keyframes pvSwipeFinger {
+  0%,
+  6% {
+    top: 92%;
+    opacity: 0;
+  }
+  14% {
+    opacity: 1;
+  }
+  34% {
+    top: 40%;
+    opacity: 1;
+  }
+  40%,
+  100% {
+    top: 40%;
+    opacity: 0;
+  }
+}
+
+/* 指がバナーを通過した瞬間、全面パネルが下からズドンとスライドインする */
+.pv-swipead-panel {
   position: absolute;
   inset: 0;
   z-index: 2;
   background: linear-gradient(135deg, #1a1a2e, #16213e);
   color: #fff;
-  font-size: 0.56rem;
+  font-size: 0.52rem;
   font-weight: bold;
   display: flex;
   align-items: center;
@@ -697,21 +744,21 @@ button {
   text-align: center;
   padding: 0 10px;
   transform: translateY(100%);
-  animation: pvScrollJack 4s ease-in-out infinite;
+  animation: pvSwipeAd 4s ease-in-out infinite;
 }
 
-@keyframes pvScrollJack {
+@keyframes pvSwipeAd {
   0%,
-  12% {
+  38% {
     transform: translateY(100%);
   }
-  30%,
-  68% {
+  48%,
+  78% {
     transform: translateY(0);
   }
-  85%,
+  88%,
   100% {
-    transform: translateY(-100%);
+    transform: translateY(100%);
   }
 }
 
@@ -1290,26 +1337,53 @@ button {
   }
 }
 
-/* ---- スクロール押し込み広告(スクロールジャック) ---- */
-.scrolljack-wrapper {
+/* ---- スワイプ広告 ---- */
+/* 記事に挿入される、一見無害な普通のインライン広告バナー */
+.swipead-banner {
   position: relative;
-  height: 220vh;
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
-  z-index: 150;
-}
-
-.scrolljack-sticky {
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  height: 180px;
+  margin: 20px 0;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: #fafafa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 14px;
   overflow: hidden;
+  text-align: left;
 }
 
-.scrolljack-panel {
-  position: relative;
-  height: 100%;
-  width: 100%;
+.swipead-tag {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  font-size: 0.6rem;
+  color: #bbb;
+}
+
+.swipead-banner-text {
+  min-width: 0;
+}
+
+@media (max-width: 480px) {
+  .swipead-banner {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+    padding: 20px 14px 14px;
+  }
+  .swipead-banner-text {
+    text-align: center;
+  }
+}
+
+/* スワイプ検知で発動する全画面広告。下から押し込まれるようにスライドインする */
+.swipead-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 450;
   background: linear-gradient(135deg, #1a1a2e, #16213e);
   color: #fff;
   display: flex;
@@ -1318,38 +1392,42 @@ button {
   justify-content: center;
   text-align: center;
   padding: 20px;
+  transform: translateY(100%);
+  transition: transform 0.35s ease-out;
 }
 
-.scrolljack-label {
+.swipead-overlay.is-open {
+  transform: translateY(0);
+}
+
+.swipead-notice {
+  font-size: 0.72rem;
+  color: #ffb3b3;
+  margin-bottom: 16px;
+  max-width: 340px;
+}
+
+.swipead-close {
   position: absolute;
   top: 14px;
-  left: 16px;
-  right: 16px;
-  color: #aaa;
-  font-size: 0.7rem;
+  right: 14px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid #fff;
+  color: #fff;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  font-size: 1rem;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
 }
 
-.scrolljack-progress-track {
-  width: min(400px, 80%);
-  height: 8px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  overflow: hidden;
-  margin-top: 16px;
-}
-
-.scrolljack-progress-bar {
-  display: block;
-  height: 100%;
-  width: 0%;
-  background: var(--color-accent);
-  transition: width 0.05s linear;
-}
-
-.scrolljack-progress-text {
-  margin-top: 8px;
-  font-size: 0.8rem;
-  color: #cfd2e0;
+.swipead-close.visible {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* ---- 擬態型インフィード広告 ---- */

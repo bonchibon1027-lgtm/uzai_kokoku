@@ -598,12 +598,14 @@ function initViewGateAd(config, ctx) {
 }
 
 /* ---------------------------------------------------------
-   ⑫ スクロール押し込み広告(スクロールジャック)
-   記事段落(60%あたり)の手前に、220vhぶんのスクロール距離を持つ
-   ラッパーを挿入する。中の広告パネルは position:sticky で
-   画面に張り付き続け、ラッパーぶんスクロールしきるまで通過できない。
+   ⑫ スワイプ広告
+   記事段落(60%あたり)の手前に、一見無害な普通のインライン広告バナーを
+   挿入する。ページをスクロールしようとして指(またはホイール/マウス
+   ドラッグ)がバナーの上を通過すると、「広告への操作」とみなされ、
+   全画面広告が下から押し込まれるように出現する。
+   rAFは使わず、CSS transitionのみでスライドイン/アウトを行う。
 --------------------------------------------------------- */
-function initScrollJackAd(config, ctx) {
+function initSwipeAd(config, ctx) {
   const container = ctx.articleContainer;
   if (!container) return;
 
@@ -617,68 +619,155 @@ function initScrollJackAd(config, ctx) {
   );
   const anchor = paragraphs[insertIndex];
 
-  const creative = pickAdCreative(config);
-
-  const wrapper = document.createElement("div");
-  wrapper.className = "scrolljack-wrapper";
-  wrapper.id = "scrolljack-ad-wrapper";
-  wrapper.innerHTML = `
-    <div class="scrolljack-sticky">
-      <div class="scrolljack-panel">
-        <span class="scrolljack-label">広告 | スクロールして通過してください ↓</span>
-        ${creativeMediaHtml(creative, "220px")}
-        <div class="ad-creative-title" style="color:#fff;font-size:1.3rem;">${escapeHtml(creative.title)}</div>
-        <div class="ad-creative-desc" style="color:#ddd;">${escapeHtml(creative.desc)}</div>
-        <div class="scrolljack-progress-track">
-          <div class="scrolljack-progress-bar" id="scrolljack-progress-bar"></div>
-        </div>
-        <div class="scrolljack-progress-text" id="scrolljack-progress-text">通過まで 0%</div>
-      </div>
+  // 一見普通のインライン広告バナー(うっかり指が乗るのが自然な広さ)
+  const bannerCreative = pickAdCreative(config);
+  const banner = document.createElement("div");
+  banner.className = "swipead-banner";
+  banner.id = "swipead-banner";
+  banner.innerHTML = `
+    <span class="swipead-tag">広告</span>
+    ${bannerCreative.imageSrc
+      ? `<img src="${bannerCreative.imageSrc}" alt="広告" style="height:100%;max-height:150px;border-radius:6px;" />`
+      : `<span style="font-size:2.2rem;">${bannerCreative.emoji}</span>`}
+    <div class="swipead-banner-text">
+      <div class="ad-creative-title" style="margin-bottom:4px;">${escapeHtml(bannerCreative.title)}</div>
+      <div class="ad-creative-desc" style="margin-bottom:0;">${escapeHtml(bannerCreative.desc)}</div>
     </div>
   `;
+  anchor.parentNode.insertBefore(banner, anchor);
 
-  anchor.parentNode.insertBefore(wrapper, anchor);
+  let overlayOpen = false;
+  let cooldownUntil = 0;
 
-  const progressBar = wrapper.querySelector("#scrolljack-progress-bar");
-  const progressText = wrapper.querySelector("#scrolljack-progress-text");
+  /** 全画面広告を下から押し込むように出現させる */
+  function triggerOverlay() {
+    if (overlayOpen) return;
+    if (Date.now() < cooldownUntil) return;
+    if (document.getElementById("swipead-fullscreen-overlay")) return;
+    overlayOpen = true;
 
-  function updateProgress() {
-    const rect = wrapper.getBoundingClientRect();
-    const scrollableDistance = wrapper.offsetHeight - window.innerHeight;
-    let pct = 0;
-    if (scrollableDistance > 0) {
-      const scrolled = -rect.top;
-      pct = Math.min(100, Math.max(0, (scrolled / scrollableDistance) * 100));
-    }
-    progressBar.style.width = pct + "%";
-    progressText.textContent = pct >= 99.5 ? "通過完了！" : `通過まで ${Math.round(pct)}%`;
-  }
+    const creative = pickAdCreative(config);
+    const overlay = document.createElement("div");
+    overlay.className = "swipead-overlay";
+    overlay.id = "swipead-fullscreen-overlay";
+    overlay.innerHTML = `
+      <button type="button" class="swipead-close" id="swipead-close-btn" aria-label="閉じる">×</button>
+      <div class="swipead-notice">広告 | スワイプ操作が広告への操作として認識されました</div>
+      ${creativeMediaHtml(creative, "200px")}
+      <div class="ad-creative-title" style="color:#fff;font-size:1.3rem;">${escapeHtml(creative.title)}</div>
+      <div class="ad-creative-desc" style="color:#ddd;">${escapeHtml(creative.desc)}</div>
+      <button type="button" class="ad-cta-btn" id="swipead-cta-btn">今すぐチェック</button>
+    `;
+    document.body.appendChild(overlay);
 
-  // scrollイベントは環境によって取りこぼしがあるため、
-  // ラッパーが画面内にある間だけ requestAnimationFrame で更新する
-  // (画面外では停止するので負荷はほぼゼロ)
-  let rafActive = false;
-  function tick() {
-    if (!rafActive) return;
-    updateProgress();
-    requestAnimationFrame(tick);
-  }
-  if ("IntersectionObserver" in window) {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting && !rafActive) {
-          rafActive = true;
-          requestAnimationFrame(tick);
-        } else if (!entry.isIntersecting) {
-          rafActive = false;
-        }
-      });
+    // requestAnimationFrameは検証環境(タブが非アクティブ等)で動かないことが
+    // あるため使わず、強制リフローを挟んでからクラス付与してtransitionを発火させる
+    void overlay.offsetHeight;
+    overlay.classList.add("is-open");
+
+    const closeBtn = overlay.querySelector("#swipead-close-btn");
+    // 閉じるボタンは2秒後に出現(それまでは非表示・クリック不可)
+    const closeBtnTimer = setTimeout(() => {
+      closeBtn.classList.add("visible");
+    }, 2000);
+
+    overlay.querySelector("#swipead-cta-btn").addEventListener("click", () => {
+      goToTrapPage();
     });
-    observer.observe(wrapper);
+
+    closeBtn.addEventListener("click", () => {
+      if (!closeBtn.classList.contains("visible")) return;
+      clearTimeout(closeBtnTimer);
+
+      // 下へスライドアウト(逆アニメーション)
+      overlay.classList.remove("is-open");
+      const cleanup = () => {
+        overlay.remove();
+      };
+      overlay.addEventListener("transitionend", cleanup, { once: true });
+      // transitionendが発火しない環境への保険
+      setTimeout(cleanup, 500);
+
+      overlayOpen = false;
+      // 閉じた直後1秒間はクールダウンとして再発動しない
+      cooldownUntil = Date.now() + 1000;
+    });
   }
-  // rAFが抑制される環境(省電力モード等)への保険として両方使う
-  window.addEventListener("scroll", updateProgress, { passive: true });
-  updateProgress();
+
+  /* ---- スワイプ検知(タッチ) ---- */
+  let touchStartY = null;
+  banner.addEventListener(
+    "touchstart",
+    (e) => {
+      if (overlayOpen) return;
+      if (e.touches && e.touches.length > 0) {
+        touchStartY = e.touches[0].clientY;
+      }
+    },
+    { passive: true }
+  );
+  banner.addEventListener(
+    "touchmove",
+    (e) => {
+      if (overlayOpen || touchStartY === null) return;
+      if (e.touches && e.touches.length > 0) {
+        const dy = Math.abs(e.touches[0].clientY - touchStartY);
+        if (dy > 30) {
+          touchStartY = null;
+          triggerOverlay();
+        }
+      }
+    },
+    { passive: true }
+  );
+
+  /* ---- スワイプ検知(マウスドラッグ) ---- */
+  let pointerStartY = null;
+  banner.addEventListener("pointerdown", (e) => {
+    if (overlayOpen) return;
+    if (e.pointerType === "mouse") {
+      pointerStartY = e.clientY;
+    }
+  });
+  banner.addEventListener("pointermove", (e) => {
+    if (overlayOpen || pointerStartY === null) return;
+    const dy = Math.abs(e.clientY - pointerStartY);
+    if (dy > 30) {
+      pointerStartY = null;
+      triggerOverlay();
+    }
+  });
+  banner.addEventListener("pointerup", () => {
+    pointerStartY = null;
+  });
+  banner.addEventListener("pointerleave", () => {
+    pointerStartY = null;
+  });
+
+  /* ---- スワイプ検知(ホイール。ページのスクロールは妨げないのでpreventDefaultは絶対に呼ばない) ---- */
+  let wheelAccum = 0;
+  let wheelResetTimer = null;
+  banner.addEventListener(
+    "wheel",
+    (e) => {
+      if (overlayOpen) return;
+      wheelAccum += Math.abs(e.deltaY);
+      if (wheelResetTimer) clearTimeout(wheelResetTimer);
+      wheelResetTimer = setTimeout(() => {
+        wheelAccum = 0;
+        wheelResetTimer = null;
+      }, 600);
+      if (wheelAccum > 100) {
+        wheelAccum = 0;
+        if (wheelResetTimer) {
+          clearTimeout(wheelResetTimer);
+          wheelResetTimer = null;
+        }
+        triggerOverlay();
+      }
+    },
+    { passive: true }
+  );
 }
 
 /* ---------------------------------------------------------
@@ -697,7 +786,7 @@ const AdTypes = {
   infeed: initInfeedAd,
   forceRedirect: initForceRedirectAd,
   viewGate: initViewGateAd,
-  scrollJack: initScrollJackAd,
+  swipeAd: initSwipeAd,
 };
 
 /**
