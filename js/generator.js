@@ -140,7 +140,7 @@ function buildAdPreviewHtml(def) {
     `,
     swipeAd: `
       <div class="ad-preview-article">${pvLines(4)}</div>
-      <div class="pv-swipead-banner">広告</div>
+      <div class="pv-swipead-banner"><span class="pv-swipead-card">広告</span></div>
       <span class="pv-swipead-finger">👆</span>
       <div class="pv-swipead-panel">広告 | スワイプが操作として認識されました</div>
     `,

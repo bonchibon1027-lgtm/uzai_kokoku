@@ -619,22 +619,36 @@ function initSwipeAd(config, ctx) {
   );
   const anchor = paragraphs[insertIndex];
 
-  // 一見普通のインライン広告バナー(うっかり指が乗るのが自然な広さ)
+  // 黒い枠の中で広告カードが斜めに奥へ倒れ込んでいる3D演出のバナー
+  // (実物のスワイプ広告の見た目)。スワイプの動きに連動してカードが
+  // さらに奥へ押し込まれ、押し込みきると全画面広告が発動する
   const bannerCreative = pickAdCreative(config);
   const banner = document.createElement("div");
   banner.className = "swipead-banner";
   banner.id = "swipead-banner";
   banner.innerHTML = `
     <span class="swipead-tag">広告</span>
-    ${bannerCreative.imageSrc
-      ? `<img src="${bannerCreative.imageSrc}" alt="広告" style="height:100%;max-height:150px;border-radius:6px;" />`
-      : `<span style="font-size:2.2rem;">${bannerCreative.emoji}</span>`}
-    <div class="swipead-banner-text">
-      <div class="ad-creative-title" style="margin-bottom:4px;">${escapeHtml(bannerCreative.title)}</div>
-      <div class="ad-creative-desc" style="margin-bottom:0;">${escapeHtml(bannerCreative.desc)}</div>
+    <span class="swipead-adchoices" aria-hidden="true">ⓘ ✕</span>
+    <div class="swipead-card" id="swipead-card">
+      ${bannerCreative.imageSrc
+        ? `<img src="${bannerCreative.imageSrc}" alt="広告" class="swipead-card-img" />`
+        : `<span style="font-size:2.6rem;">${bannerCreative.emoji}</span>`}
+      <div class="ad-creative-title" style="font-size:0.95rem;margin-bottom:2px;">${escapeHtml(bannerCreative.title)}</div>
+      <div class="ad-creative-desc" style="font-size:0.72rem;margin-bottom:0;">${escapeHtml(bannerCreative.desc)}</div>
     </div>
   `;
   anchor.parentNode.insertBefore(banner, anchor);
+
+  // スワイプの進み具合(0〜1)に応じてカードを奥へ押し込む
+  const card = banner.querySelector("#swipead-card");
+  function setPushProgress(p) {
+    const angle = -32 - 38 * p; // -32deg(初期の傾き) → -70deg
+    const depth = -140 * p; // 奥行き方向へ最大140px
+    card.style.transform = `rotateY(${angle}deg) translateZ(${depth}px)`;
+  }
+  function resetPush() {
+    card.style.transform = "";
+  }
 
   let overlayOpen = false;
   let cooldownUntil = 0;
@@ -694,7 +708,14 @@ function initSwipeAd(config, ctx) {
     });
   }
 
-  /* ---- スワイプ検知(タッチ) ---- */
+  /** 押し込みきったときの共通処理 */
+  function completePush() {
+    resetPush();
+    triggerOverlay();
+  }
+
+  /* ---- スワイプ検知(タッチ)。90pxのスワイプでカードが押し込みきられて発動 ---- */
+  const TOUCH_FULL_PUSH = 90;
   let touchStartY = null;
   banner.addEventListener(
     "touchstart",
@@ -712,11 +733,21 @@ function initSwipeAd(config, ctx) {
       if (overlayOpen || touchStartY === null) return;
       if (e.touches && e.touches.length > 0) {
         const dy = Math.abs(e.touches[0].clientY - touchStartY);
-        if (dy > 30) {
+        const p = Math.min(1, dy / TOUCH_FULL_PUSH);
+        setPushProgress(p);
+        if (p >= 1) {
           touchStartY = null;
-          triggerOverlay();
+          completePush();
         }
       }
+    },
+    { passive: true }
+  );
+  banner.addEventListener(
+    "touchend",
+    () => {
+      touchStartY = null;
+      if (!overlayOpen) resetPush();
     },
     { passive: true }
   );
@@ -732,19 +763,24 @@ function initSwipeAd(config, ctx) {
   banner.addEventListener("pointermove", (e) => {
     if (overlayOpen || pointerStartY === null) return;
     const dy = Math.abs(e.clientY - pointerStartY);
-    if (dy > 30) {
+    const p = Math.min(1, dy / TOUCH_FULL_PUSH);
+    setPushProgress(p);
+    if (p >= 1) {
       pointerStartY = null;
-      triggerOverlay();
+      completePush();
     }
   });
   banner.addEventListener("pointerup", () => {
     pointerStartY = null;
+    if (!overlayOpen) resetPush();
   });
   banner.addEventListener("pointerleave", () => {
     pointerStartY = null;
+    if (!overlayOpen) resetPush();
   });
 
   /* ---- スワイプ検知(ホイール。ページのスクロールは妨げないのでpreventDefaultは絶対に呼ばない) ---- */
+  const WHEEL_FULL_PUSH = 160;
   let wheelAccum = 0;
   let wheelResetTimer = null;
   banner.addEventListener(
@@ -756,14 +792,17 @@ function initSwipeAd(config, ctx) {
       wheelResetTimer = setTimeout(() => {
         wheelAccum = 0;
         wheelResetTimer = null;
+        if (!overlayOpen) resetPush();
       }, 600);
-      if (wheelAccum > 100) {
+      const p = Math.min(1, wheelAccum / WHEEL_FULL_PUSH);
+      setPushProgress(p);
+      if (p >= 1) {
         wheelAccum = 0;
         if (wheelResetTimer) {
           clearTimeout(wheelResetTimer);
           wheelResetTimer = null;
         }
-        triggerOverlay();
+        completePush();
       }
     },
     { passive: true }
