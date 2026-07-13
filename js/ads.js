@@ -639,10 +639,10 @@ function initSwipeAd(config, ctx) {
   `;
   anchor.parentNode.insertBefore(banner, anchor);
 
-  // スワイプの進み具合(0〜1)に応じてカードを奥へ押し込む
+  // スワイプの進み具合(0〜1)に応じてカードを正面向きから奥へ押し込む
   const card = banner.querySelector("#swipead-card");
   function setPushProgress(p) {
-    const angle = -32 - 38 * p; // -32deg(初期の傾き) → -70deg
+    const angle = -70 * p; // 0deg(正面向き) → -70deg
     const depth = -140 * p; // 奥行き方向へ最大140px
     card.style.transform = `rotateY(${angle}deg) translateZ(${depth}px)`;
   }
@@ -708,10 +708,15 @@ function initSwipeAd(config, ctx) {
     });
   }
 
-  /** 押し込みきったときの共通処理 */
+  /** 押し込みきったときの共通処理。
+      押し込まれるアニメーション(transition 0.25s)を見せきってから
+      全画面広告を発動し、カードを正面向きに戻しておく */
   function completePush() {
-    resetPush();
-    triggerOverlay();
+    setPushProgress(1);
+    setTimeout(() => {
+      resetPush();
+      triggerOverlay();
+    }, 260);
   }
 
   /* ---- スワイプ検知(タッチ)。90pxのスワイプでカードが押し込みきられて発動 ---- */
