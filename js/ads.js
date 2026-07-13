@@ -657,82 +657,54 @@ function initSwipeAd(config, ctx) {
     card.style.transform = "";
   }
 
-  let overlayOpen = false;
-  let cooldownUntil = 0;
+  let fired = false;
 
-  /** 全画面広告を下から押し込むように出現させる */
-  function triggerOverlay() {
-    if (overlayOpen) return;
-    if (Date.now() < cooldownUntil) return;
-    if (document.getElementById("swipead-fullscreen-overlay")) return;
-    overlayOpen = true;
-
-    const creative = pickAdCreative(config);
-    const overlay = document.createElement("div");
-    overlay.className = "swipead-overlay";
-    overlay.id = "swipead-fullscreen-overlay";
-    overlay.innerHTML = `
-      <button type="button" class="swipead-close" id="swipead-close-btn" aria-label="閉じる">×</button>
-      <div class="swipead-notice">広告 | スワイプ操作が広告への操作として認識されました</div>
-      ${creativeMediaHtml(creative, "200px")}
-      <div class="ad-creative-title" style="color:#fff;font-size:1.3rem;">${escapeHtml(creative.title)}</div>
-      <div class="ad-creative-desc" style="color:#ddd;">${escapeHtml(creative.desc)}</div>
-      <button type="button" class="ad-cta-btn" id="swipead-cta-btn">今すぐチェック</button>
-    `;
-    document.body.appendChild(overlay);
-
-    // requestAnimationFrameは検証環境(タブが非アクティブ等)で動かないことが
-    // あるため使わず、強制リフローを挟んでからクラス付与してtransitionを発火させる
-    void overlay.offsetHeight;
-    overlay.classList.add("is-open");
-
-    const closeBtn = overlay.querySelector("#swipead-close-btn");
-    // 閉じるボタンは2秒後に出現(それまでは非表示・クリック不可)
-    const closeBtnTimer = setTimeout(() => {
-      closeBtn.classList.add("visible");
-    }, 2000);
-
-    overlay.querySelector("#swipead-cta-btn").addEventListener("click", () => {
-      goToTrapPage();
-    });
-
-    closeBtn.addEventListener("click", () => {
-      if (!closeBtn.classList.contains("visible")) return;
-      clearTimeout(closeBtnTimer);
-
-      // 下へスライドアウト(逆アニメーション)
-      overlay.classList.remove("is-open");
-      const cleanup = () => {
-        overlay.remove();
-      };
-      overlay.addEventListener("transitionend", cleanup, { once: true });
-      // transitionendが発火しない環境への保険
-      setTimeout(cleanup, 500);
-
-      overlayOpen = false;
-      // 閉じた直後1秒間はクールダウンとして再発動しない
-      cooldownUntil = Date.now() + 1000;
-    });
+  /** 偽の広告ランディングページ(swipe-lp.html)へ実際に遷移する。
+      LP側で同じクリエイティブを表示できるようsessionStorageで渡す */
+  function goToSwipeLp() {
+    try {
+      sessionStorage.setItem(
+        "uzaSwipeLpCreative",
+        JSON.stringify({
+          emoji: bannerCreative.emoji,
+          title: bannerCreative.title,
+          desc: bannerCreative.desc,
+          imageSrc: bannerCreative.imageSrc || null,
+        })
+      );
+    } catch (e) {
+      /* 渡せなくてもLP側のデフォルト表示で遷移は続行する */
+    }
+    location.href = "swipe-lp.html";
   }
 
   /** 押し込みきったときの共通処理。
       押し込まれるアニメーション(transition 0.25s)を見せきってから
-      全画面広告を発動し、カードを正面向きに戻しておく */
+      別ページ(偽LP)へ飛ばす */
   function completePush() {
+    if (fired) return;
+    fired = true;
     setPushProgress(1);
-    setTimeout(() => {
-      resetPush();
-      triggerOverlay();
-    }, 260);
+    setTimeout(goToSwipeLp, 300);
   }
 
-  /* ---- スワイプ検知(タッチ)。90pxのスワイプでカードが押し込みきられて発動 ---- */
+  // 戻るボタンでbfcacheから復帰したときはバナーを再武装する
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted) {
+      fired = false;
+      resetPush();
+    }
+  });
+
+  /* ---- スワイプ検知(タッチ)。90pxのスワイプでカードが押し込みきられて発動。
+     バナー上のタッチはCSSのtouch-action: noneとpreventDefaultで
+     ページスクロールに使わせない = 「スクロールを広告に取られる」感覚 ---- */
   const TOUCH_FULL_PUSH = 90;
   let touchStartY = null;
   banner.addEventListener(
     "touchstart",
     (e) => {
-      if (overlayOpen) return;
+      if (fired) return;
       if (e.touches && e.touches.length > 0) {
         touchStartY = e.touches[0].clientY;
       }
@@ -742,7 +714,9 @@ function initSwipeAd(config, ctx) {
   banner.addEventListener(
     "touchmove",
     (e) => {
-      if (overlayOpen || touchStartY === null) return;
+      if (fired || touchStartY === null) return;
+      // スクロールの動きを広告が乗っ取る
+      if (e.cancelable) e.preventDefault();
       if (e.touches && e.touches.length > 0) {
         const dy = Math.abs(e.touches[0].clientY - touchStartY);
         const p = Math.min(1, dy / TOUCH_FULL_PUSH);
@@ -753,13 +727,13 @@ function initSwipeAd(config, ctx) {
         }
       }
     },
-    { passive: true }
+    { passive: false }
   );
   banner.addEventListener(
     "touchend",
     () => {
       touchStartY = null;
-      if (!overlayOpen) resetPush();
+      if (!fired) resetPush();
     },
     { passive: true }
   );
@@ -767,13 +741,13 @@ function initSwipeAd(config, ctx) {
   /* ---- スワイプ検知(マウスドラッグ) ---- */
   let pointerStartY = null;
   banner.addEventListener("pointerdown", (e) => {
-    if (overlayOpen) return;
+    if (fired) return;
     if (e.pointerType === "mouse") {
       pointerStartY = e.clientY;
     }
   });
   banner.addEventListener("pointermove", (e) => {
-    if (overlayOpen || pointerStartY === null) return;
+    if (fired || pointerStartY === null) return;
     const dy = Math.abs(e.clientY - pointerStartY);
     const p = Math.min(1, dy / TOUCH_FULL_PUSH);
     setPushProgress(p);
@@ -784,27 +758,30 @@ function initSwipeAd(config, ctx) {
   });
   banner.addEventListener("pointerup", () => {
     pointerStartY = null;
-    if (!overlayOpen) resetPush();
+    if (!fired) resetPush();
   });
   banner.addEventListener("pointerleave", () => {
     pointerStartY = null;
-    if (!overlayOpen) resetPush();
+    if (!fired) resetPush();
   });
 
-  /* ---- スワイプ検知(ホイール。ページのスクロールは妨げないのでpreventDefaultは絶対に呼ばない) ---- */
+  /* ---- スワイプ検知(ホイール)。バナー上ではpreventDefaultで
+     ページスクロールを止め、ホイールの動きを押し込みに変換する ---- */
   const WHEEL_FULL_PUSH = 160;
   let wheelAccum = 0;
   let wheelResetTimer = null;
   banner.addEventListener(
     "wheel",
     (e) => {
-      if (overlayOpen) return;
+      if (fired) return;
+      // スクロールを奪う
+      if (e.cancelable) e.preventDefault();
       wheelAccum += Math.abs(e.deltaY);
       if (wheelResetTimer) clearTimeout(wheelResetTimer);
       wheelResetTimer = setTimeout(() => {
         wheelAccum = 0;
         wheelResetTimer = null;
-        if (!overlayOpen) resetPush();
+        if (!fired) resetPush();
       }, 600);
       const p = Math.min(1, wheelAccum / WHEEL_FULL_PUSH);
       setPushProgress(p);
@@ -817,7 +794,7 @@ function initSwipeAd(config, ctx) {
         completePush();
       }
     },
-    { passive: true }
+    { passive: false }
   );
 }
 

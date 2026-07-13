@@ -781,13 +781,15 @@ button {
   }
 }
 
-/* 指がバナーを通過した瞬間、全面パネルが下からズドンとスライドインする */
+/* 指がバナーを通過した瞬間、「別の広告ページ」に飛ばされたように
+   白いページが横からスライドインしてくる */
 .pv-swipead-panel {
   position: absolute;
   inset: 0;
   z-index: 2;
-  background: linear-gradient(135deg, #1a1a2e, #16213e);
-  color: #fff;
+  background: #fff;
+  border-top: 6px solid #dd2476;
+  color: #dd2476;
   font-size: 0.52rem;
   font-weight: bold;
   display: flex;
@@ -795,22 +797,22 @@ button {
   justify-content: center;
   text-align: center;
   padding: 0 10px;
-  transform: translateY(100%);
+  transform: translateX(100%);
   animation: pvSwipeAd 4s ease-in-out infinite;
 }
 
 @keyframes pvSwipeAd {
   0%,
-  38% {
-    transform: translateY(100%);
+  40% {
+    transform: translateX(100%);
   }
   48%,
-  78% {
-    transform: translateY(0);
+  80% {
+    transform: translateX(0);
   }
   88%,
   100% {
-    transform: translateY(100%);
+    transform: translateX(100%);
   }
 }
 
@@ -1407,6 +1409,9 @@ button {
   align-items: center;
   justify-content: center;
   transition: background 0.25s ease, border-color 0.25s ease;
+  /* バナー上のタッチをブラウザのスクロールに使わせない
+     (スクロールの動きを広告が乗っ取る) */
+  touch-action: none;
 }
 
 .swipead-banner.pushing {
@@ -1471,55 +1476,101 @@ button {
   }
 }
 
-/* スワイプ検知で発動する全画面広告。下から押し込まれるようにスライドインする */
-.swipead-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 450;
-  background: linear-gradient(135deg, #1a1a2e, #16213e);
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+/* ==========================================================
+   swipe-lp.html(スワイプ広告の飛び先=偽の広告ランディングページ)
+   ========================================================== */
+
+.swipelp-notice {
+  background: #fff3cd;
+  color: #7a5b00;
   text-align: center;
-  padding: 20px;
-  transform: translateY(100%);
-  transition: transform 0.35s ease-out;
+  font-size: 0.78rem;
+  padding: 8px 14px;
 }
 
-.swipead-overlay.is-open {
-  transform: translateY(0);
-}
-
-.swipead-notice {
-  font-size: 0.72rem;
-  color: #ffb3b3;
-  margin-bottom: 16px;
-  max-width: 340px;
-}
-
-.swipead-close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid #fff;
+.swipelp-header {
+  background: linear-gradient(90deg, #ff512f, #dd2476);
   color: #fff;
-  border-radius: 50%;
-  width: 34px;
-  height: 34px;
-  font-size: 1rem;
-  visibility: hidden;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
+  text-align: center;
+  padding: 14px;
+  font-weight: bold;
+  letter-spacing: 1px;
 }
 
-.swipead-close.visible {
-  visibility: visible;
-  opacity: 1;
-  pointer-events: auto;
+.swipelp-body {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 30px 20px 60px;
+  text-align: center;
+}
+
+.swipelp-emoji {
+  font-size: 5rem;
+  margin: 10px 0;
+}
+
+.swipelp-img {
+  max-height: 240px;
+  margin: 10px auto;
+  border-radius: 10px;
+}
+
+.swipelp-price {
+  margin: 18px 0;
+  font-size: 1.1rem;
+}
+
+.swipelp-price .old {
+  text-decoration: line-through;
+  color: #999;
+  margin-right: 10px;
+}
+
+.swipelp-price .new {
+  color: var(--color-danger);
+  font-size: 1.9rem;
+  font-weight: bold;
+  animation: swipelpBlink 0.9s steps(1) infinite;
+}
+
+@keyframes swipelpBlink {
+  0%,
+  59% {
+    opacity: 1;
+  }
+  60%,
+  100% {
+    opacity: 0.35;
+  }
+}
+
+.swipelp-stock {
+  font-size: 0.82rem;
+  color: var(--color-danger);
+  font-weight: bold;
+  margin-bottom: 18px;
+}
+
+.swipelp-cta {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto 14px;
+  background: linear-gradient(90deg, #ff512f, #dd2476);
+  color: #fff;
+  border: none;
+  border-radius: 40px;
+  padding: 16px;
+  font-size: 1.05rem;
+  font-weight: bold;
+  box-shadow: 0 6px 18px rgba(221, 36, 118, 0.45);
+}
+
+.swipelp-back {
+  display: inline-block;
+  margin-top: 18px;
+  color: var(--color-text-sub);
+  font-size: 0.85rem;
 }
 
 /* ---- 擬態型インフィード広告 ---- */

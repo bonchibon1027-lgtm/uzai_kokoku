@@ -28,7 +28,7 @@ const AD_TYPE_DEFS = [
   { id: "infeed", name: "⑨ 擬態型インフィード広告", desc: "おすすめ記事に紛れ込む、本物そっくりの広告リンク。", previewClass: "infeed" },
   { id: "forceRedirect", name: "⑩ 強制リダイレクト広告", desc: "記事エリアを連続でタップすると、強制的に別ページへ飛ばされます。", previewClass: "forceRedirect" },
   { id: "viewGate", name: "⑪ 視聴強制ゲート", desc: "記事全体が広告ゲートに覆われ、視聴完了までは読めません。", previewClass: "viewGate" },
-  { id: "swipeAd", name: "⑫ スワイプ広告", desc: "スクロールのつもりのスワイプが広告の上を通ると、操作として認識されて全画面広告が発動します。", previewClass: "swipeAd" },
+  { id: "swipeAd", name: "⑫ スワイプ広告", desc: "広告の上ではスクロールが乗っ取られ、広告が押し込まれて別の広告ページへ飛ばされます。", previewClass: "swipeAd" },
 ];
 
 // アップロード素材の保持用(dataURL配列)
@@ -142,7 +142,7 @@ function buildAdPreviewHtml(def) {
       <div class="ad-preview-article">${pvLines(4)}</div>
       <div class="pv-swipead-banner"><span class="pv-swipead-card">広告</span></div>
       <span class="pv-swipead-finger">👆</span>
-      <div class="pv-swipead-panel">広告 | スワイプが操作として認識されました</div>
+      <div class="pv-swipead-panel">広告ページへ移動しました…</div>
     `,
   };
   return `<div class="ad-preview preview--${id}" aria-hidden="true">${bodyById[id] || ""}</div>`;

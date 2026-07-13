@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>【公式】特別キャンペーン | うざい広告ジェネレーター(パロディ)</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div class="swipelp-notice">⚠️ これはパロディの広告ページです。スワイプ操作が広告に乗っ取られて、ここに飛ばされてきました。</div>
+
+<header class="swipelp-header">✨ SUPER★SHOP 公式ストア(という設定) ✨</header>
+
+<main class="swipelp-body">
+  <div id="lp-media" class="swipelp-emoji">📢</div>
+  <h1 id="lp-title" style="font-size:1.35rem;">あなたにおすすめの商品です！</h1>
+  <p id="lp-desc" style="color:var(--color-text-sub);">今だけの特別なチャンスをお見逃しなく。</p>
+
+  <div class="swipelp-price">
+    <span class="old">通常価格 99,800円</span>
+    <span class="new">980円</span>
+  </div>
+  <div class="swipelp-stock">🔥 残りわずか!(在庫数は特に決まっていません)</div>
+
+  <button type="button" class="swipelp-cta" id="lp-cta-btn">今すぐ購入する ▶</button>
+  <div style="font-size:0.7rem;color:#aaa;">※実際には何も購入できませんし、何も起きません</div>
+
+  <a href="javascript:void(0);" class="swipelp-back" id="lp-back-btn">← 記事に戻る</a>
+</main>
+
+<script>
+  // 体験画面から渡されたクリエイティブがあれば差し替える
+  (function () {
+    try {
+      const raw = sessionStorage.getItem("uzaSwipeLpCreative");
+      if (raw) {
+        const c = JSON.parse(raw);
+        if (c.imageSrc) {
+          const img = document.createElement("img");
+          img.src = c.imageSrc;
+          img.alt = "広告画像";
+          img.className = "swipelp-img";
+          document.getElementById("lp-media").replaceWith(img);
+        } else if (c.emoji) {
+          document.getElementById("lp-media").textContent = c.emoji;
+        }
+        if (c.title) document.getElementById("lp-title").textContent = c.title;
+        if (c.desc) document.getElementById("lp-desc").textContent = c.desc;
+      }
+    } catch (e) {
+      /* 読めなければデフォルト表示のまま */
+    }
+
+    // 購入ボタンはお約束のtrap.htmlへ(サイト内で完結)
+    document.getElementById("lp-cta-btn").addEventListener("click", function () {
+      location.href = "trap.html";
+    });
+
+    // 記事に戻る(履歴がない場合は体験画面へ)
+    document.getElementById("lp-back-btn").addEventListener("click", function () {
+      if (history.length > 1) {
+        history.back();
+      } else {
+        location.href = "experience.html";
+      }
+    });
+  })();
+</script>
+</body>
+</html>
