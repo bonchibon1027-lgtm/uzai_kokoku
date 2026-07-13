@@ -639,14 +639,21 @@ function initSwipeAd(config, ctx) {
   `;
   anchor.parentNode.insertBefore(banner, anchor);
 
-  // スワイプの進み具合(0〜1)に応じてカードを正面向きから奥へ押し込む
+  // スワイプの進み具合(0〜1)に応じてカードを正面向きから奥へ押し込む。
+  // 押し込み中は .pushing で背景が黒く沈み、奥行きが見えるようになる
   const card = banner.querySelector("#swipead-card");
   function setPushProgress(p) {
+    if (p > 0) {
+      banner.classList.add("pushing");
+    } else {
+      banner.classList.remove("pushing");
+    }
     const angle = -70 * p; // 0deg(正面向き) → -70deg
     const depth = -140 * p; // 奥行き方向へ最大140px
     card.style.transform = `rotateY(${angle}deg) translateZ(${depth}px)`;
   }
   function resetPush() {
+    banner.classList.remove("pushing");
     card.style.transform = "";
   }
 
